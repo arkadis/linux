@@ -971,6 +971,8 @@ static int mpls_route_add(struct mpls_route_config *cfg,
 	u8 max_labels;
 	u8 nhs;
 
+	printk(KERN_INFO "adding route mofo\n");
+
 	index = cfg->rc_label;
 
 	/* If a label was not specified during insert pick one */
@@ -1801,11 +1803,18 @@ static int rtm_to_route_config(struct sk_buff *skb,
 			cfg->rc_ifindex = nla_get_u32(nla);
 			break;
 		case RTA_NEWDST:
+		{
+			int i;
+			printk("RTA_NEWDST\n");
 			if (nla_get_labels(nla, MAX_NEW_LABELS,
 					   &cfg->rc_output_labels,
 					   cfg->rc_output_label, extack))
 				goto errout;
+
+			for (i = 0; i < cfg->rc_output_labels; i++)
+				printk(KERN_INFO "output label %d\n", cfg->rc_output_label[i]);
 			break;
+		}
 		case RTA_DST:
 		{
 			u8 label_count;
@@ -1816,6 +1825,8 @@ static int rtm_to_route_config(struct sk_buff *skb,
 			if (!mpls_label_ok(cfg->rc_nlinfo.nl_net,
 					   &cfg->rc_label, extack))
 				goto errout;
+			printk("RTA_DST %d\n", cfg->rc_label);
+
 			break;
 		}
 		case RTA_VIA:
@@ -2426,6 +2437,8 @@ static int mpls_net_init(struct net *net)
 {
 	struct ctl_table *table;
 	int i;
+
+	printk(KERN_INFO "net init mofo\n");
 
 	net->mpls.platform_labels = 0;
 	net->mpls.platform_label = NULL;
