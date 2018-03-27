@@ -7140,6 +7140,14 @@ static void __mlxsw_sp_router_fini(struct mlxsw_sp *mlxsw_sp)
 	mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(rgcr), rgcr_pl);
 }
 
+static void mlxsw_sp_router_mpls_init(struct mlxsw_sp *mlxsw_sp)
+{
+	char mpgcr_pl[MLXSW_REG_MPGCR_LEN];
+
+	mlxsw_reg_mpgcr_pack(mpgcr_pl, 10, 1000);
+	mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(mpgcr), mpgcr_pl);
+}
+
 int mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
 {
 	struct mlxsw_sp_router *router;
@@ -7204,6 +7212,8 @@ int mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
 	err = mlxsw_sp_dscp_init(mlxsw_sp);
 	if (err)
 		goto err_dscp_init;
+
+	mlxsw_sp_router_mpls_init(mlxsw_sp);
 
 	mlxsw_sp->router->fib_nb.notifier_call = mlxsw_sp_router_fib_event;
 	err = register_fib_notifier(&mlxsw_sp->router->fib_nb,
