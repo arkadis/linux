@@ -172,6 +172,13 @@ struct mpls_route { /* next hop label forwarding entry */
 
 #define endfor_nexthops(rt) }
 
+struct mpls_route_entry_notifier_info {
+	struct fib_notifier_info info;
+	unsigned index;
+	struct mpls_route *old;
+	struct mpls_route *new;
+};
+
 static inline struct mpls_shim_hdr mpls_entry_encode(u32 label, unsigned ttl, unsigned tc, bool bos)
 {
 	struct mpls_shim_hdr result;

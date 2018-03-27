@@ -548,6 +548,25 @@ static void mpls_notify_route(struct net *net, unsigned index,
 		rtmsg_lfib(event, index, rt, nlh, net, portid, nlm_flags);
 }
 
+static int
+call_mpls_route_update_notifiers(struct net *net, unsigned index,
+				 struct mpls_route *old,
+			         struct mpls_route *new)
+{
+	struct mpls_route_entry_notifier_info info = {
+		.info = {
+			.family = AF_MPLS,
+			.net = net,
+		},
+		.index = index,
+		.old = old,
+		.new = new,
+	};
+
+	ASSERT_RTNL();
+	return call_fib_notifiers(net, FIB_EVENT_ENTRY_REPLACE, &info.info);
+}
+
 static void mpls_route_update(struct net *net, unsigned index,
 			      struct mpls_route *new,
 			      const struct nl_info *info)
@@ -562,7 +581,7 @@ static void mpls_route_update(struct net *net, unsigned index,
 	rcu_assign_pointer(platform_label[index], new);
 
 	mpls_notify_route(net, index, rt, new, info);
-
+	call_mpls_route_update_notifiers(net, index, rt, new);
 	/* If we removed a route free it now */
 	mpls_rt_free(rt);
 }
