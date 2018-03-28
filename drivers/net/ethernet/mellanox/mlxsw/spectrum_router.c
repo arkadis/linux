@@ -60,6 +60,7 @@
 #include <net/ndisc.h>
 #include <net/ipv6.h>
 #include <net/fib_notifier.h>
+#include <net/mpls.h>
 
 #include "spectrum.h"
 #include "core.h"
@@ -5629,6 +5630,7 @@ struct mlxsw_sp_fib_event_work {
 		struct fib_nh_notifier_info fnh_info;
 		struct mfc_entry_notifier_info men_info;
 		struct vif_entry_notifier_info ven_info;
+		struct mpls_route_entry_notifier_info mpls_info;
 	};
 	struct mlxsw_sp *mlxsw_sp;
 	unsigned long event;
@@ -5867,6 +5869,50 @@ static int mlxsw_sp_router_fib_rule_event(unsigned long event,
 	return err;
 }
 
+static void mlxsw_sp_router_mpls_event_work(struct work_struct *work)
+{
+	struct mlxsw_sp_fib_event_work *fib_work =
+		container_of(work, struct mlxsw_sp_fib_event_work, work);
+	struct mlxsw_sp *mlxsw_sp = fib_work->mlxsw_sp;
+	bool replace, append;
+	int err;
+
+	char mpilm_pl[MLXSW_REG_MPILM_LEN];
+
+	/* Protect internal structures from changes */
+	rtnl_lock();
+
+	switch (fib_work->event) {
+	case FIB_EVENT_ENTRY_REPLACE: /* fall through */
+	case FIB_EVENT_ENTRY_APPEND: /* fall through */
+	case FIB_EVENT_ENTRY_ADD:
+		break;
+	}
+
+	printk(KERN_INFO "mpls notherfucker 2\n");
+	printk(KERN_INFO "mpls notherfucker 2 %d\n", fib_work->mpls_info.index);
+
+	mlxsw_reg_mpilm_pack(mpilm_pl, MLXSW_REG_MPILM_OP_READ_WRITE,
+			     fib_work->mpls_info.index, 0, 1);
+	mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(mpilm), mpilm_pl);
+
+	rtnl_unlock();
+	kfree(fib_work);
+}
+
+static void
+mlxsw_sp_router_mpls_event(struct mlxsw_sp_fib_event_work *fib_work,
+			   struct fib_notifier_info *info)
+{
+	switch (fib_work->event) {
+	case FIB_EVENT_ENTRY_REPLACE: /* fall through */
+	case FIB_EVENT_ENTRY_ADD: /* fall through */
+	case FIB_EVENT_ENTRY_DEL:
+		memcpy(&fib_work->mpls_info, info, sizeof(fib_work->mpls_info));
+		break;
+	}
+}
+
 /* Called with rcu_read_lock() */
 static int mlxsw_sp_router_fib_event(struct notifier_block *nb,
 				     unsigned long event, void *ptr)
@@ -5878,7 +5924,7 @@ static int mlxsw_sp_router_fib_event(struct notifier_block *nb,
 
 	if (!net_eq(info->net, &init_net) ||
 	    (info->family != AF_INET && info->family != AF_INET6 &&
-	     info->family != RTNL_FAMILY_IPMR))
+	     info->family != RTNL_FAMILY_IPMR && info->family != AF_MPLS))
 		return NOTIFY_DONE;
 
 	router = container_of(nb, struct mlxsw_sp_router, fib_nb);
@@ -5911,6 +5957,11 @@ static int mlxsw_sp_router_fib_event(struct notifier_block *nb,
 	case RTNL_FAMILY_IPMR:
 		INIT_WORK(&fib_work->work, mlxsw_sp_router_fibmr_event_work);
 		mlxsw_sp_router_fibmr_event(fib_work, info);
+		break;
+	case AF_MPLS:
+		printk(KERN_INFO "mpls motherfucker\n");
+		INIT_WORK(&fib_work->work, mlxsw_sp_router_mpls_event_work);
+		mlxsw_sp_router_mpls_event(fib_work, info);
 		break;
 	}
 
