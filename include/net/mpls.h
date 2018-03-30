@@ -108,4 +108,10 @@ static inline struct mpls_shim_hdr *mpls_hdr(const struct sk_buff *skb)
 {
 	return (struct mpls_shim_hdr *)skb_network_header(skb);
 }
+
+static inline u8 *__mpls_nh_via(struct mpls_route *rt, struct mpls_nh *nh)
+{
+	return (u8 *)nh + rt->rt_via_offset;
+}
+
 #endif

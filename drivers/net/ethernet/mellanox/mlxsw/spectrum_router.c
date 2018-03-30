@@ -5869,15 +5869,41 @@ static int mlxsw_sp_router_fib_rule_event(unsigned long event,
 	return err;
 }
 
+void get_adj(struct mlxsw_sp *mlxsw_sp, int adj)
+{
+	char mpnhlfe_pl[MLXSW_REG_MPNHLFE_LEN];
+	int err;
+
+	MLXSW_REG_ZERO(mpnhlfe, mpnhlfe_pl);
+	mlxsw_reg_mpnhlfe_nhlfe_ptr_set(mpnhlfe_pl, adj);
+	err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(mpnhlfe), mpnhlfe_pl);
+	if (err)
+		printk(KERN_INFO "mofo\n");
+
+	printk(KERN_INFO "rif %d index %d label %d activity %d valid %d\n",
+						     mlxsw_reg_mpnhlfe_erif_get(mpnhlfe_pl),
+					             mlxsw_reg_mpnhlfe_nhlfe_ptr_get(mpnhlfe_pl),
+						     mlxsw_reg_mpnhlfe_label_id_get(mpnhlfe_pl),
+						     mlxsw_reg_mpnhlfe_a_get(mpnhlfe_pl),
+						     mlxsw_reg_mpnhlfe_v_get(mpnhlfe_pl));
+}
+
 static void mlxsw_sp_router_mpls_event_work(struct work_struct *work)
 {
 	struct mlxsw_sp_fib_event_work *fib_work =
 		container_of(work, struct mlxsw_sp_fib_event_work, work);
 	struct mlxsw_sp *mlxsw_sp = fib_work->mlxsw_sp;
-	bool replace, append;
+	struct mpls_route_entry_notifier_info *mpls_info;
+	struct mpls_nh *mpls_nh;
+	struct mpls_route *rt;
+	int i, adj_index;
+	struct mlxsw_sp_neigh_entry *neigh_entry;
+	struct neighbour *n;
+
 	int err;
 
 	char mpilm_pl[MLXSW_REG_MPILM_LEN];
+	char mpnhlfe_pl[MLXSW_REG_MPNHLFE_LEN];
 
 	/* Protect internal structures from changes */
 	rtnl_lock();
@@ -5889,13 +5915,62 @@ static void mlxsw_sp_router_mpls_event_work(struct work_struct *work)
 		break;
 	}
 
-	printk(KERN_INFO "mpls notherfucker 2\n");
-	printk(KERN_INFO "mpls notherfucker 2 %d\n", fib_work->mpls_info.index);
+	mpls_info  = &fib_work->mpls_info;
+	if (!mpls_info->new) {
+		get_adj(mlxsw_sp, 100);
+		goto out;
+	}
+
+	rt = mpls_info->new;
+	mpls_nh = rt->rt_nh;
+
+	n = neigh_lookup(&arp_tbl, __mpls_nh_via(rt, mpls_nh),
+		         mpls_nh->nh_dev);
+	if (!n) {
+		printk(KERN_INFO "no neigh found\n");
+		goto out;
+	}
+
+	neigh_entry = mlxsw_sp_neigh_entry_lookup(mlxsw_sp, n);
+	if (!neigh_entry) {
+		printk(KERN_INFO "no neigh entry found\n");
+		neigh_release(n);
+		goto out;
+	}
+
+	printk(KERN_INFO "> Successfully received Local MAC Address : %02x:%02x:%02x:%02x:%02x:%02x\n",
+		  (unsigned char) neigh_entry->ha[0],
+		  (unsigned char) neigh_entry->ha[1],
+		  (unsigned char) neigh_entry->ha[2],
+		  (unsigned char) neigh_entry->ha[3],
+		  (unsigned char) neigh_entry->ha[4],
+		  (unsigned char) neigh_entry->ha[5]);
+
+	printk(KERN_INFO "mpls notherfucker 2 mpls new is %d lab first %d sec %d \n", mpls_info->new,
+			mpls_nh->nh_label[0],
+			mpls_nh->nh_label[1]);
+	printk(KERN_INFO "mpls notherfucker 2 index %d \n", mpls_info->index);
+//	printk(KERN_INFO "mpls notherfucker 2 index %d egress tag %d\n", mpls_info->index, mpls_nh->nh_label[0]);
+
+	adj_index = 100;
+	printk(KERN_INFO "setting rif %d\n", neigh_entry->rif);
 
 	mlxsw_reg_mpilm_pack(mpilm_pl, MLXSW_REG_MPILM_OP_READ_WRITE,
-			     fib_work->mpls_info.index, 0, 1);
+			     fib_work->mpls_info.index, 50, 1);
 	mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(mpilm), mpilm_pl);
 
+
+	mlxsw_reg_mpnhlfe_next_pack(mpnhlfe_pl, mpls_nh->nh_label[1], 50, adj_index, 1);
+	mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(mpnhlfe), mpnhlfe_pl);
+
+
+	mlxsw_reg_mpnhlfe_pack(mpnhlfe_pl, mpls_nh->nh_label[0],
+			       neigh_entry->ha, adj_index, neigh_entry->rif);
+	mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(mpnhlfe), mpnhlfe_pl);
+
+	get_adj(mlxsw_sp, 100);
+	neigh_release(n);
+out:
 	rtnl_unlock();
 	kfree(fib_work);
 }

@@ -3384,6 +3384,7 @@ static const struct mlxsw_listener mlxsw_sp_listener[] = {
 	MLXSW_SP_RXL_MARK(ACL1, TRAP_TO_CPU, MULTICAST, false),
 	MLXSW_SP_RXL_MR_MARK(ACL2, TRAP_TO_CPU, MULTICAST, false),
 	MLXSW_SP_RXL_MARK(MPLS_ILM0, TRAP_TO_CPU, HOST_MISS, false),
+	MLXSW_SP_RXL_MARK(MPLS_NHLFE0, TRAP_TO_CPU, HOST_MISS, false),
 };
 
 static int mlxsw_sp_cpu_policers_set(struct mlxsw_core *mlxsw_core)
