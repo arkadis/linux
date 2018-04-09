@@ -72,6 +72,7 @@
 #include "spectrum_mr_tcam.h"
 #include "spectrum_router.h"
 #include "spectrum_span.h"
+#include "spectrum_mpls.h"
 
 struct mlxsw_sp_rif {
 	struct list_head nexthop_list;
